@@ -82,5 +82,4 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\PC-Debloat-Optimizer.ps1 -
 ## Licenca/uso
 
 Perfil do dono: SrYakuza6695.
-
-E proibido vender, revender, empacotar comercialmente ou distribuir este codigo como produto pago sem autorizacao expressa do perfil SrYakuza6695.
+É proibido vender, revender, empacotar comercialmente ou distribuir este codigo como produto pago sem autorizacao expressa do perfil SrYakuza6695.
