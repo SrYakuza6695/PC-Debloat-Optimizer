@@ -26,6 +26,7 @@ param(
     [string]$Profile = 'Auto',
 
     [switch]$NoPrompt,
+    [switch]$PauseOnExit,
     [switch]$SkipRestorePoint,
     [switch]$KeepXbox,
     [switch]$KeepOneDrive,
@@ -40,6 +41,7 @@ $script:SelectedProfile = $null
 $script:HardwareClass = $null
 $script:RecommendedProfile = $null
 $script:IsLaptop = $false
+$script:HadError = $false
 
 function Show-Banner {
     Clear-Host
@@ -304,7 +306,7 @@ function Export-Reports {
     $appsPath = Join-Path $script:LogDir 'installed-apps.csv'
     $summaryPath = Join-Path $script:LogDir 'optimizer-summary.json'
 
-    $ProfileData | ConvertTo-Json -Depth 6 | Out-File -Path $hardwarePath -Encoding UTF8
+    $ProfileData | ConvertTo-Json -Depth 6 | Out-File -FilePath $hardwarePath -Encoding UTF8
     Get-InstalledApplicationNames | ForEach-Object { [pscustomobject]@{ Name = $_ } } |
         Export-Csv -Path $appsPath -NoTypeInformation -Encoding UTF8
 
@@ -315,7 +317,7 @@ function Export-Reports {
         Score = $Assessment.Score
         GamerLikely = $Assessment.GamerLikely
         Log = $script:TranscriptPath
-    } | ConvertTo-Json -Depth 4 | Out-File -Path $summaryPath -Encoding UTF8
+    } | ConvertTo-Json -Depth 4 | Out-File -FilePath $summaryPath -Encoding UTF8
 
     Write-Host "Perfil de hardware: $hardwarePath" -ForegroundColor DarkGray
     Write-Host "Lista de apps:       $appsPath" -ForegroundColor DarkGray
@@ -832,6 +834,7 @@ try {
     Write-Host 'Reinicie o PC para todos os ajustes terem efeito completo.' -ForegroundColor Yellow
 }
 catch {
+    $script:HadError = $true
     Write-Host ''
     Write-Host "Erro: $($_.Exception.Message)" -ForegroundColor Red
     exit 1
@@ -841,5 +844,20 @@ finally {
         Stop-Transcript | Out-Null
     }
     catch {
+    }
+
+    if ($PauseOnExit) {
+        try {
+            Write-Host ''
+            if ($script:TranscriptPath) {
+                Write-Host "Log salvo em: $script:TranscriptPath" -ForegroundColor DarkGray
+            }
+            if ($script:HadError) {
+                Write-Host 'O script encontrou um erro. Confira a mensagem acima antes de fechar.' -ForegroundColor Yellow
+            }
+            Read-Host 'Pressione Enter para fechar'
+        }
+        catch {
+        }
     }
 }
