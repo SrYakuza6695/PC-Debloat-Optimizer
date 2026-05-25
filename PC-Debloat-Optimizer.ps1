@@ -42,6 +42,7 @@ $script:HardwareClass = $null
 $script:RecommendedProfile = $null
 $script:IsLaptop = $false
 $script:HadError = $false
+$script:ExitCode = 0
 
 function Show-Banner {
     Clear-Host
@@ -127,7 +128,12 @@ function Invoke-Change {
     )
 
     if ($PSCmdlet.ShouldProcess($Target, $Action)) {
-        & $ScriptBlock
+        try {
+            & $ScriptBlock
+        }
+        catch {
+            Write-SoftWarning "$Action falhou em $Target. Continuando. Detalhe: $($_.Exception.Message)"
+        }
     }
 }
 
@@ -411,8 +417,11 @@ function Set-RegistryDword {
     )
 
     Invoke-Change -Target "$Path\$Name" -Action "Definir DWORD=$Value" -ScriptBlock {
-        New-Item -Path $Path -Force | Out-Null
-        New-ItemProperty -Path $Path -Name $Name -PropertyType DWord -Value $Value -Force | Out-Null
+        if (-not (Test-Path -Path $Path)) {
+            New-Item -Path $Path -Force -ErrorAction Stop | Out-Null
+        }
+
+        New-ItemProperty -Path $Path -Name $Name -PropertyType DWord -Value $Value -Force -ErrorAction Stop | Out-Null
     }
 }
 
@@ -835,9 +844,9 @@ try {
 }
 catch {
     $script:HadError = $true
+    $script:ExitCode = 1
     Write-Host ''
     Write-Host "Erro: $($_.Exception.Message)" -ForegroundColor Red
-    exit 1
 }
 finally {
     try {
@@ -860,4 +869,8 @@ finally {
         catch {
         }
     }
+}
+
+if ($script:ExitCode -ne 0) {
+    exit $script:ExitCode
 }
