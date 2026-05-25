@@ -409,6 +409,85 @@ function Confirm-GamerTotal {
     }
 }
 
+function ConvertTo-RegExePath {
+    param([Parameter(Mandatory)][string]$Path)
+
+    $normalized = $Path.Trim()
+
+    if ($normalized -match '(?i)^HKLM:[\\](.+)$') {
+        return "HKLM\$($Matches[1])"
+    }
+
+    if ($normalized -match '(?i)^HKCU:[\\](.+)$') {
+        return "HKCU\$($Matches[1])"
+    }
+
+    if ($normalized -match '(?i)^HKCR:[\\](.+)$') {
+        return "HKCR\$($Matches[1])"
+    }
+
+    if ($normalized -match '(?i)^HKU:[\\](.+)$') {
+        return "HKU\$($Matches[1])"
+    }
+
+    return $null
+}
+
+function Get-RegExeViewArgs {
+    param([Parameter(Mandatory)][string]$RegPath)
+
+    if ([Environment]::Is64BitOperatingSystem -and $RegPath -match '(?i)^HK(LM|CU)[\\]Software[\\]') {
+        return @('/reg:64')
+    }
+
+    return @()
+}
+
+function Invoke-RegExeAddDword {
+    param(
+        [Parameter(Mandatory)][string]$Path,
+        [Parameter(Mandatory)][string]$Name,
+        [Parameter(Mandatory)][int]$Value
+    )
+
+    $regPath = ConvertTo-RegExePath -Path $Path
+    if (-not $regPath) {
+        throw "Caminho de registro nao suportado para fallback: $Path"
+    }
+
+    $args = @(
+        'add',
+        $regPath,
+        '/v', $Name,
+        '/t', 'REG_DWORD',
+        '/d', $Value.ToString(),
+        '/f'
+    ) + (Get-RegExeViewArgs -RegPath $regPath)
+
+    $output = & reg.exe @args 2>&1
+    if ($LASTEXITCODE -ne 0) {
+        throw "reg.exe add falhou ($LASTEXITCODE): $($output -join ' ')"
+    }
+}
+
+function Invoke-RegExeDeleteValue {
+    param(
+        [Parameter(Mandatory)][string]$Path,
+        [Parameter(Mandatory)][string]$Name
+    )
+
+    $regPath = ConvertTo-RegExePath -Path $Path
+    if (-not $regPath) {
+        throw "Caminho de registro nao suportado para fallback: $Path"
+    }
+
+    $args = @('delete', $regPath, '/v', $Name, '/f') + (Get-RegExeViewArgs -RegPath $regPath)
+    $output = & reg.exe @args 2>&1
+    if ($LASTEXITCODE -ne 0 -and ($output -join ' ') -notmatch '(?i)unable to find|n[aã]o.*encontr') {
+        throw "reg.exe delete falhou ($LASTEXITCODE): $($output -join ' ')"
+    }
+}
+
 function Set-RegistryDword {
     param(
         [Parameter(Mandatory)][string]$Path,
@@ -417,11 +496,17 @@ function Set-RegistryDword {
     )
 
     Invoke-Change -Target "$Path\$Name" -Action "Definir DWORD=$Value" -ScriptBlock {
-        if (-not (Test-Path -Path $Path)) {
-            New-Item -Path $Path -Force -ErrorAction Stop | Out-Null
-        }
+        try {
+            if (-not (Test-Path -Path $Path)) {
+                New-Item -Path $Path -Force -ErrorAction Stop | Out-Null
+            }
 
-        New-ItemProperty -Path $Path -Name $Name -PropertyType DWord -Value $Value -Force -ErrorAction Stop | Out-Null
+            New-ItemProperty -Path $Path -Name $Name -PropertyType DWord -Value $Value -Force -ErrorAction Stop | Out-Null
+        }
+        catch {
+            Write-Host "PowerShell nao conseguiu gravar $Path\$Name. Tentando fallback com reg.exe..." -ForegroundColor DarkGray
+            Invoke-RegExeAddDword -Path $Path -Name $Name -Value $Value
+        }
     }
 }
 
@@ -436,7 +521,13 @@ function Remove-RegistryValueSafe {
     }
 
     Invoke-Change -Target "$Path\$Name" -Action 'Remover valor de registro' -ScriptBlock {
-        Remove-ItemProperty -Path $Path -Name $Name -Force -ErrorAction SilentlyContinue
+        try {
+            Remove-ItemProperty -Path $Path -Name $Name -Force -ErrorAction Stop
+        }
+        catch {
+            Write-Host "PowerShell nao conseguiu remover $Path\$Name. Tentando fallback com reg.exe..." -ForegroundColor DarkGray
+            Invoke-RegExeDeleteValue -Path $Path -Name $Name
+        }
     }
 }
 

@@ -38,7 +38,7 @@ Script PowerShell para debloat e otimizacao geral de PCs com Windows 10 e Window
 Cole no PowerShell. Ele baixa o script, pede permissao de Administrador pelo UAC e executa:
 
 ```powershell
-$u='https://raw.githubusercontent.com/SrYakuza6695/PC-Debloat-Optimizer/main/PC-Debloat-Optimizer.ps1';$p=Join-Path $env:TEMP 'PC-Debloat-Optimizer.ps1';[Net.ServicePointManager]::SecurityProtocol=[Net.SecurityProtocolType]::Tls12;Invoke-WebRequest -Uri $u -UseBasicParsing -OutFile $p;$c="& '$p' -PauseOnExit";$e=[Convert]::ToBase64String([Text.Encoding]::Unicode.GetBytes($c));Start-Process -FilePath powershell.exe -Verb RunAs -Wait -ArgumentList @('-NoProfile','-ExecutionPolicy','Bypass','-EncodedCommand',$e)
+$u='https://raw.githubusercontent.com/SrYakuza6695/PC-Debloat-Optimizer/main/PC-Debloat-Optimizer.ps1';$p=Join-Path $env:TEMP 'PC-Debloat-Optimizer.ps1';$ps="$env:WINDIR\System32\WindowsPowerShell\v1.0\powershell.exe";if([Environment]::Is64BitOperatingSystem -and -not [Environment]::Is64BitProcess){$ps="$env:WINDIR\Sysnative\WindowsPowerShell\v1.0\powershell.exe"};[Net.ServicePointManager]::SecurityProtocol=[Net.SecurityProtocolType]::Tls12;Invoke-WebRequest -Uri $u -UseBasicParsing -OutFile $p;$c="& '$p' -PauseOnExit";$e=[Convert]::ToBase64String([Text.Encoding]::Unicode.GetBytes($c));Start-Process -FilePath $ps -Verb RunAs -Wait -ArgumentList @('-NoProfile','-ExecutionPolicy','Bypass','-EncodedCommand',$e)
 ```
 
 ## Uso local
