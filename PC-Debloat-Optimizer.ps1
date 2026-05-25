@@ -112,11 +112,11 @@ function New-SafeRestorePoint {
 
     try {
         Write-Step 'Criando ponto de restauracao'
-        Checkpoint-Computer -Description $script:ToolName -RestorePointType 'MODIFY_SETTINGS'
+        Checkpoint-Computer -Description $script:ToolName -RestorePointType 'MODIFY_SETTINGS' -ErrorAction Stop -WarningAction Stop
         Write-Good 'Ponto de restauracao criado.'
     }
     catch {
-        Write-SoftWarning "Nao foi possivel criar ponto de restauracao. Continuando. Detalhe: $($_.Exception.Message)"
+        Write-SoftWarning "Ponto de restauracao nao foi criado agora. Continuando. Detalhe: $($_.Exception.Message)"
     }
 }
 
